@@ -16,6 +16,12 @@ interface HealthDao {
     @Delete
     suspend fun delete(record: HealthEntity)
 
+    @Query("DELETE FROM health_records WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Query("SELECT * FROM health_records WHERE babyId = :babyId ORDER BY timestamp DESC LIMIT 50")
     fun observeRecent(babyId: Long): Flow<List<HealthEntity>>
+
+    @Query("SELECT * FROM health_records WHERE babyId = :babyId ORDER BY timestamp DESC")
+    suspend fun getAll(babyId: Long): List<HealthEntity>
 }
