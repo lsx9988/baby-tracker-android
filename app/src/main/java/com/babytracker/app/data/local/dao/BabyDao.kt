@@ -25,4 +25,10 @@ interface BabyDao {
 
     @Query("SELECT * FROM babies WHERE id = :id")
     suspend fun getById(id: Long): BabyEntity?
+
+    @Query("SELECT * FROM babies WHERE name = :name LIMIT 1")
+    suspend fun getByName(name: String): BabyEntity?
+
+    @Query("SELECT * FROM babies ORDER BY createdAt ASC")
+    suspend fun getAll(): List<BabyEntity>
 }
