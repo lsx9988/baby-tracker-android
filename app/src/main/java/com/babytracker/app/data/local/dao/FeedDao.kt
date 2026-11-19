@@ -16,6 +16,12 @@ interface FeedDao {
     @Delete
     suspend fun delete(record: FeedEntity)
 
+    @Query("DELETE FROM feed_records WHERE id = :id")
+    suspend fun deleteById(id: Long)
+
     @Query("SELECT * FROM feed_records WHERE babyId = :babyId ORDER BY timestamp DESC LIMIT 50")
     fun observeRecent(babyId: Long): Flow<List<FeedEntity>>
+
+    @Query("SELECT * FROM feed_records WHERE babyId = :babyId ORDER BY timestamp DESC")
+    suspend fun getAll(babyId: Long): List<FeedEntity>
 }
