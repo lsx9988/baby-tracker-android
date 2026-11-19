@@ -5,8 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.babytracker.app.data.local.dao.BabyDao
+import com.babytracker.app.data.local.dao.CareDao
 import com.babytracker.app.data.local.dao.FeedDao
 import com.babytracker.app.data.local.dao.HealthDao
+import com.babytracker.app.data.local.dao.MedicalDao
 import com.babytracker.app.data.local.entity.BabyEntity
 import com.babytracker.app.data.local.entity.CareEntity
 import com.babytracker.app.data.local.entity.FeedEntity
@@ -29,6 +31,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun babyDao(): BabyDao
     abstract fun feedDao(): FeedDao
     abstract fun healthDao(): HealthDao
+    abstract fun careDao(): CareDao
+    abstract fun medicalDao(): MedicalDao
 
     companion object {
         @Volatile
