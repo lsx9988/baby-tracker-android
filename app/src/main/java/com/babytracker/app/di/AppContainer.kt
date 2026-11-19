@@ -12,6 +12,11 @@ class AppContainer(context: Context) {
 
     val babyRepository: BabyRepository = BabyRepository(database.babyDao())
 
-    val recordRepository: RecordRepository =
-        RecordRepository(database.feedDao(), database.healthDao())
+    val recordRepository: RecordRepository = RecordRepository(
+        babyDao = database.babyDao(),
+        feedDao = database.feedDao(),
+        healthDao = database.healthDao(),
+        careDao = database.careDao(),
+        medicalDao = database.medicalDao()
+    )
 }
