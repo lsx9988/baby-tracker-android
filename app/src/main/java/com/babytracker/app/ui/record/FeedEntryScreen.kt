@@ -1,6 +1,7 @@
 package com.babytracker.app.ui.record
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,21 +10,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babytracker.app.domain.model.FeedType
 import com.babytracker.app.ui.components.BackTopBar
+import com.babytracker.app.ui.components.DateTimePickerField
 import com.babytracker.app.ui.components.FieldLabel
 import com.babytracker.app.ui.components.SaveButton
 import com.babytracker.app.ui.components.SectionCard
@@ -38,15 +43,37 @@ fun FeedEntryScreen(
 ) {
     val babies by viewModel.babyRepo.babies.collectAsStateWithLifecycle(emptyList())
     val babyId = viewModel.selectedBabyId ?: babies.firstOrNull()?.id
+    val original = viewModel.editingFeed
+
+    LaunchedEffect(Unit) { viewModel.fetchEdit() }
 
     var type by remember { mutableStateOf(FeedType.BOTTLE) }
     var amount by remember { mutableStateOf("") }
     var duration by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var timestamp by remember { mutableStateOf(System.currentTimeMillis()) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        BackTopBar("记喂养", onBack)
-        Spacer(Modifier.height(16.dp))
+    LaunchedEffect(original) {
+        original?.let {
+            type = FeedType.fromName(it.type)
+            amount = it.amount.display()
+            duration = it.durationMin?.toString() ?: ""
+            note = it.note
+            timestamp = it.timestamp
+        }
+    }
+
+    val isEdit = original != null
+
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+                .padding(bottom = 84.dp)
+        ) {
+            BackTopBar(if (isEdit) "编辑喂养" else "记喂养", onBack)
+            Spacer(Modifier.height(16.dp))
 
         SectionCard {
             FieldLabel("类型")
@@ -66,6 +93,8 @@ fun FeedEntryScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            DateTimePickerField("时间", timestamp) { timestamp = it }
+            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = amount,
                 onValueChange = { amount = it },
@@ -89,13 +118,32 @@ fun FeedEntryScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
-
-        Spacer(Modifier.weight(1f))
-        SaveButton("保存") {
-            babyId?.let { id ->
-                viewModel.addFeed(id, type, amount.toDoubleOrNull(), duration.toIntOrNull(), note)
-                onBack()
-            } ?: viewModel.message("请先添加宝宝档案")
         }
+
+        fun save() {
+            if (babyId == null && original == null) {
+                viewModel.message("请先添加宝宝档案")
+                return
+            }
+            viewModel.upsertFeed(
+                babyId = babyId,
+                original = original,
+                type = type,
+                amount = amount.toDoubleOrNull(),
+                durationMin = duration.toIntOrNull(),
+                note = note,
+                timestamp = timestamp
+            )
+            viewModel.clearEdit()
+            onBack()
+        }
+        SaveButton(
+            if (isEdit) "保存修改" else "保存",
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            onClick = ::save
+        )
     }
 }
+
+private fun Double?.display(): String =
+    this?.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() } ?: ""
