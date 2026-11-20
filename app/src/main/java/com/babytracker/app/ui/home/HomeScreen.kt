@@ -2,6 +2,7 @@ package com.babytracker.app.ui.home
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,17 +15,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -45,6 +46,8 @@ import com.babytracker.app.domain.model.CareType
 import com.babytracker.app.domain.model.FeedType
 import com.babytracker.app.domain.model.HealthType
 import com.babytracker.app.domain.model.MedicalType
+import com.babytracker.app.ui.components.EntryTile
+import com.babytracker.app.ui.components.color
 import com.babytracker.app.util.ageLabel
 import com.babytracker.app.util.formatFull
 import kotlinx.coroutines.Dispatchers
@@ -130,43 +133,38 @@ fun HomeScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            CenterAlignedTopAppBar(
-                title = { Text("育儿成长记录") },
-                actions = {
-                    TextButton(onClick = {
-                        val name = "baby-tracker-" +
-                            SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date()) +
-                            ".json"
-                        exportLauncher.launch(name)
-                    }) { Text("导出") }
-                    TextButton(onClick = {
-                        importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
-                    }) { Text("导入") }
+            // 顶部栏
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("育儿成长记录", style = MaterialTheme.typography.titleLarge)
                 }
-            )
+                TextButton(onClick = {
+                    val name = "baby-tracker-" +
+                        SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(Date()) +
+                        ".json"
+                    exportLauncher.launch(name)
+                }) { Text("导出") }
+                TextButton(onClick = {
+                    importLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+                }) { Text("导入") }
+            }
 
             if (babies.isEmpty()) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text("还没有宝宝档案", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        "先添加宝宝，再开始记录喂养、健康、护理、医疗等日常",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.height(20.dp))
-                    Button(onClick = onAddBaby) { Text("添加宝宝") }
-                }
+                EmptyBaby(onAddBaby)
             } else {
-                BabyChips(
-                    babies = babies,
-                    selectedId = selected?.id,
-                    onSelect = viewModel::selectBaby
-                )
-                Spacer(Modifier.height(8.dp))
+                if (babies.size > 1) {
+                    BabyChips(
+                        babies = babies,
+                        selectedId = selected?.id,
+                        onSelect = viewModel::selectBaby
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
                 selected?.let {
                     RecordsPanel(
                         baby = it,
@@ -188,6 +186,39 @@ fun HomeScreen(
 }
 
 @Composable
+private fun EmptyBaby(onAddBaby: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(
+            modifier = Modifier
+                .size(88.dp)
+                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(28.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                Icons.Filled.Favorite,
+                contentDescription = null,
+                modifier = Modifier.size(40.dp),
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Text("还没有宝宝档案", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "先添加宝宝，再开始记录喂养、健康、护理、医疗等日常",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(20.dp))
+        Button(onClick = onAddBaby, shape = RoundedCornerShape(16.dp)) { Text("添加宝宝") }
+    }
+}
+
+@Composable
 private fun BabyChips(
     babies: List<BabyEntity>,
     selectedId: Long?,
@@ -198,11 +229,23 @@ private fun BabyChips(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         babies.forEach { baby ->
-            FilterChip(
-                selected = baby.id == selectedId,
-                onClick = { onSelect(baby.id) },
-                label = { Text(baby.name) }
-            )
+            Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (baby.id == selectedId)
+                        MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.surface
+                )
+            ) {
+                TextButton(onClick = { onSelect(baby.id) }) {
+                    Text(
+                        baby.name,
+                        color = if (baby.id == selectedId)
+                            MaterialTheme.colorScheme.onPrimary
+                        else MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
         }
     }
 }
@@ -221,101 +264,131 @@ private fun RecordsPanel(
     val cares by viewModel.careRecords(baby.id).collectAsStateWithLifecycle(emptyList())
     val medicals by viewModel.medicalRecords(baby.id).collectAsStateWithLifecycle(emptyList())
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
-        Text(
-            "${baby.name} · ${ageLabel(baby.birthdayMillis)}",
-            style = MaterialTheme.typography.titleMedium
-        )
-        Spacer(Modifier.height(12.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onAddFeed) { Text("喂养") }
-            OutlinedButton(onClick = onAddHealth) { Text("健康") }
-            OutlinedButton(onClick = onAddCare) { Text("护理") }
-            OutlinedButton(onClick = onAddMedical) { Text("医疗") }
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp)
+    ) {
+        // 问候卡片
+        Card(
+            shape = RoundedCornerShape(24.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(20.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        baby.name.firstOrNull()?.uppercase() ?: "宝",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(baby.name, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        ageLabel(baby.birthdayMillis),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
         }
 
+        Spacer(Modifier.height(16.dp))
+
+        // 2x2 入口
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            EntryTile("喂养", "吃奶 · 喝水 · 辅食", com.babytracker.app.ui.theme.FeedColor,
+                Modifier.weight(1f), onAddFeed)
+            EntryTile("健康", "体温 · 体重 · 身高", com.babytracker.app.ui.theme.HealthColor,
+                Modifier.weight(1f), onAddHealth)
+        }
         Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            EntryTile("护理", "尿布 · 睡眠 · 洗澡", com.babytracker.app.ui.theme.CareColor,
+                Modifier.weight(1f), onAddCare)
+            EntryTile("医疗", "补剂 · 用药 · 疫苗", com.babytracker.app.ui.theme.MedicalColor,
+                Modifier.weight(1f), onAddMedical)
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text("最近记录", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(10.dp))
 
         val merged: List<RecordItem> = buildList {
             feeds.forEach {
-                add(
-                    RecordItem(
-                        kind = RecordKind.FEED,
-                        id = it.id,
-                        timestamp = it.timestamp,
-                        title = describeFeed(it.type, it.amount, it.durationMin),
-                        note = it.note
-                    )
-                )
+                add(RecordItem(RecordKind.FEED, it.id, it.timestamp,
+                    describeFeed(it.type, it.amount, it.durationMin), it.note))
             }
             healths.forEach {
-                add(
-                    RecordItem(
-                        kind = RecordKind.HEALTH,
-                        id = it.id,
-                        timestamp = it.timestamp,
-                        title = describeHealth(it.type, it.value, it.unit),
-                        note = it.note
-                    )
-                )
+                add(RecordItem(RecordKind.HEALTH, it.id, it.timestamp,
+                    describeHealth(it.type, it.value, it.unit), it.note))
             }
             cares.forEach {
-                add(
-                    RecordItem(
-                        kind = RecordKind.CARE,
-                        id = it.id,
-                        timestamp = it.timestamp,
-                        title = describeCare(it.type, it.detail),
-                        note = it.note
-                    )
-                )
+                add(RecordItem(RecordKind.CARE, it.id, it.timestamp,
+                    describeCare(it.type, it.detail), it.note))
             }
             medicals.forEach {
-                add(
-                    RecordItem(
-                        kind = RecordKind.MEDICAL,
-                        id = it.id,
-                        timestamp = it.timestamp,
-                        title = describeMedical(it.type, it.title, it.dose),
-                        note = it.note
-                    )
-                )
+                add(RecordItem(RecordKind.MEDICAL, it.id, it.timestamp,
+                    describeMedical(it.type, it.title, it.dose), it.note))
             }
         }.sortedByDescending { it.timestamp }
 
         if (merged.isEmpty()) {
             Text(
-                "还没有记录，点上面的按钮开始记第一条",
-                style = MaterialTheme.typography.bodyMedium
+                "还没有记录，点上面的卡片开始记第一条",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(merged, key = { "${it.kind}-${it.id}" }) { row ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(row.title, style = MaterialTheme.typography.titleSmall)
-                                Text(
-                                    formatFull(row.timestamp),
-                                    style = MaterialTheme.typography.bodySmall
-                                )
-                                if (row.note.isNotBlank()) {
-                                    Text(row.note, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                            IconButton(
-                                onClick = { viewModel.deleteRecord(row.kind, row.id) },
-                                modifier = Modifier.size(36.dp)
-                            ) {
-                                Icon(Icons.Filled.Delete, contentDescription = "删除这条记录")
-                            }
-                        }
-                    }
+                    RecordCard(
+                        row = row,
+                        onDelete = { viewModel.deleteRecord(row.kind, row.id) }
+                    )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordCard(row: RecordItem, onDelete: () -> Unit) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .background(row.kind.color(), RoundedCornerShape(5.dp))
+            )
+            Column(Modifier.weight(1f)) {
+                Text(row.title, style = MaterialTheme.typography.titleSmall)
+                Text(formatFull(row.timestamp), style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (row.note.isNotBlank()) {
+                    Text(row.note, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                Icon(Icons.Filled.Delete, contentDescription = "删除这条记录")
             }
         }
     }
