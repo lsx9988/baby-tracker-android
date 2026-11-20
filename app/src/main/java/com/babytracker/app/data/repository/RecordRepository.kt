@@ -119,6 +119,18 @@ class RecordRepository(
         }
     }
 
+    // ---- 编辑：按 id 读取 ----
+    suspend fun getFeed(id: Long): FeedEntity? = feedDao.getById(id)
+    suspend fun getHealth(id: Long): HealthEntity? = healthDao.getById(id)
+    suspend fun getCare(id: Long): CareEntity? = careDao.getById(id)
+    suspend fun getMedical(id: Long): MedicalEntity? = medicalDao.getById(id)
+
+    // ---- 编辑：更新 ----
+    suspend fun updateFeed(record: FeedEntity) = feedDao.update(record)
+    suspend fun updateHealth(record: HealthEntity) = healthDao.update(record)
+    suspend fun updateCare(record: CareEntity) = careDao.update(record)
+    suspend fun updateMedical(record: MedicalEntity) = medicalDao.update(record)
+
     /** 导出单宝宝全部记录为 JSON 文本 */
     suspend fun exportJson(babyId: Long): String {
         val baby = babyDao.getById(babyId)
