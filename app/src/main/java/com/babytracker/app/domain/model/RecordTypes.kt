@@ -11,7 +11,7 @@ enum class FeedType(val label: String, val unit: String?) {
 
     companion object {
         fun fromName(name: String?): FeedType =
-            entries.firstOrNull { it.name == name } ?: BOTTLE
+            values().firstOrNull { it.name == name } ?: BOTTLE
     }
 }
 
@@ -24,7 +24,7 @@ enum class CareType(val label: String) {
 
     companion object {
         fun fromName(name: String?): CareType =
-            entries.firstOrNull { it.name == name } ?: DIAPER
+            values().firstOrNull { it.name == name } ?: DIAPER
     }
 }
 
@@ -38,7 +38,7 @@ enum class HealthType(val label: String, val unit: String) {
 
     companion object {
         fun fromName(name: String?): HealthType =
-            entries.firstOrNull { it.name == name } ?: TEMP
+            values().firstOrNull { it.name == name } ?: TEMP
     }
 }
 
@@ -52,7 +52,7 @@ enum class MedicalType(val label: String) {
 
     companion object {
         fun fromName(name: String?): MedicalType =
-            entries.firstOrNull { it.name == name } ?: SUPPLEMENT
+            values().firstOrNull { it.name == name } ?: SUPPLEMENT
     }
 }
 
@@ -64,6 +64,6 @@ enum class Gender(val label: String) {
 
     companion object {
         fun fromName(name: String?): Gender =
-            entries.firstOrNull { it.name == name } ?: UNKNOWN
+            values().firstOrNull { it.name == name } ?: UNKNOWN
     }
 }
