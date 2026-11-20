@@ -1,6 +1,7 @@
 package com.babytracker.app.ui.home
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
@@ -18,10 +21,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.babytracker.app.domain.model.Gender
 import com.babytracker.app.ui.components.BackTopBar
+import com.babytracker.app.ui.components.DatePickerField
 import com.babytracker.app.ui.components.FieldLabel
 import com.babytracker.app.ui.components.SaveButton
 import com.babytracker.app.ui.components.SectionCard
@@ -34,10 +39,17 @@ fun AddBabyScreen(
     onBack: () -> Unit
 ) {
     var name by remember { mutableStateOf("") }
+    var birthday by remember { mutableStateOf(System.currentTimeMillis()) }
     var gender by remember { mutableStateOf(Gender.UNKNOWN) }
     var note by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+                .padding(bottom = 84.dp)
+        ) {
         BackTopBar("添加宝宝", onBack)
         Spacer(Modifier.height(16.dp))
 
@@ -51,6 +63,10 @@ fun AddBabyScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
+            Spacer(Modifier.height(16.dp))
+            FieldLabel("出生日期")
+            Spacer(Modifier.height(10.dp))
+            DatePickerField("出生日期", birthday) { birthday = it }
             Spacer(Modifier.height(16.dp))
             FieldLabel("性别")
             Spacer(Modifier.height(10.dp))
@@ -72,8 +88,8 @@ fun AddBabyScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        }
 
-        Spacer(Modifier.weight(1f))
         fun save() {
             if (name.isBlank()) {
                 viewModel.message("请填写昵称")
@@ -81,11 +97,15 @@ fun AddBabyScreen(
             }
             viewModel.addBaby(
                 name = name,
-                birthdayMillis = System.currentTimeMillis(),
+                birthdayMillis = birthday,
                 gender = gender,
                 note = note
             ) { onBack() }
         }
-        SaveButton("保存", onClick = ::save)
+        SaveButton(
+            "保存",
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            onClick = ::save
+        )
     }
 }
