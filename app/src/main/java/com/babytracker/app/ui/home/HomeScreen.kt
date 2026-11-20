@@ -3,6 +3,7 @@ package com.babytracker.app.ui.home
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -41,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babytracker.app.data.local.entity.BabyEntity
+import com.babytracker.app.data.local.entity.CareEntity
 import com.babytracker.app.data.repository.RecordKind
 import com.babytracker.app.domain.model.CareType
 import com.babytracker.app.domain.model.FeedType
@@ -49,7 +51,10 @@ import com.babytracker.app.domain.model.MedicalType
 import com.babytracker.app.ui.components.EntryTile
 import com.babytracker.app.ui.components.color
 import com.babytracker.app.util.ageLabel
+import com.babytracker.app.util.dayLabel
 import com.babytracker.app.util.formatFull
+import com.babytracker.app.util.relativeAgo
+import com.babytracker.app.util.startOfDay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,7 +70,8 @@ fun HomeScreen(
     onAddFeed: () -> Unit,
     onAddHealth: () -> Unit,
     onAddCare: () -> Unit,
-    onAddMedical: () -> Unit
+    onAddMedical: () -> Unit,
+    onEdit: (RecordKind, Long) -> Unit
 ) {
     val babies by viewModel.babyRepo.babies.collectAsStateWithLifecycle(emptyList())
     val context = LocalContext.current
@@ -133,7 +139,6 @@ fun HomeScreen(
 
     Box(Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // 顶部栏
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -172,7 +177,8 @@ fun HomeScreen(
                         onAddFeed = onAddFeed,
                         onAddHealth = onAddHealth,
                         onAddCare = onAddCare,
-                        onAddMedical = onAddMedical
+                        onAddMedical = onAddMedical,
+                        onEdit = onEdit
                     )
                 }
             }
@@ -257,19 +263,40 @@ private fun RecordsPanel(
     onAddFeed: () -> Unit,
     onAddHealth: () -> Unit,
     onAddCare: () -> Unit,
-    onAddMedical: () -> Unit
+    onAddMedical: () -> Unit,
+    onEdit: (RecordKind, Long) -> Unit
 ) {
     val feeds by viewModel.feedRecords(baby.id).collectAsStateWithLifecycle(emptyList())
     val healths by viewModel.healthRecords(baby.id).collectAsStateWithLifecycle(emptyList())
     val cares by viewModel.careRecords(baby.id).collectAsStateWithLifecycle(emptyList())
     val medicals by viewModel.medicalRecords(baby.id).collectAsStateWithLifecycle(emptyList())
 
+    val now = System.currentTimeMillis()
+    val todayStart = startOfDay(now)
+    val todayFeeds = feeds.filter { it.timestamp >= todayStart }
+    val todayDiapers = cares.filter {
+        it.timestamp >= todayStart && CareType.fromName(it.type) == CareType.DIAPER
+    }
+    val todaySleep = cares.filter {
+        it.timestamp >= todayStart && CareType.fromName(it.type) == CareType.SLEEP
+    }
+    val todayMedical = medicals.filter { it.timestamp >= todayStart }
+
+    val feedMl = todayFeeds
+        .filter { FeedType.fromName(it.type) in listOf(FeedType.BOTTLE, FeedType.WATER, FeedType.PUMP) }
+        .sumOf { it.amount ?: 0.0 }
+    val feedMin = todayFeeds
+        .filter { FeedType.fromName(it.type) in listOf(FeedType.BREAST_LEFT, FeedType.BREAST_RIGHT) }
+        .sumOf { it.durationMin ?: 0 }
+    val sleepMinTotal = todaySleep.sumOf { sleepMinutes(it) }
+    val lastFeed = feeds.firstOrNull()?.timestamp
+
     Column(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp)
     ) {
-        // 问候卡片
+        // 问候卡片 + 距上次喂养
         Card(
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
@@ -299,8 +326,46 @@ private fun RecordsPanel(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    lastFeed?.let {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "距上次喂养 ${relativeAgo(it, now)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
                 }
             }
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        // 今日概览矩阵
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatTile(
+                value = "${todayFeeds.size}",
+                label = "喂奶",
+                sub = if (feedMl > 0) "${feedMl.toInt()} ml" else if (feedMin > 0) "${feedMin} 分" else "—",
+                modifier = Modifier.weight(1f)
+            )
+            StatTile(
+                value = "${todayDiapers.size}",
+                label = "尿便",
+                sub = "次",
+                modifier = Modifier.weight(1f)
+            )
+            StatTile(
+                value = sleepText(sleepMinTotal),
+                label = "睡眠",
+                sub = "今日",
+                modifier = Modifier.weight(1f)
+            )
+            StatTile(
+                value = "${todayMedical.size}",
+                label = "医疗",
+                sub = "条",
+                modifier = Modifier.weight(1f)
+            )
         }
 
         Spacer(Modifier.height(16.dp))
@@ -350,12 +415,24 @@ private fun RecordsPanel(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         } else {
+            val groups = linkedMapOf<String, MutableList<RecordItem>>()
+            merged.forEach { groups.getOrPut(dayLabel(it.timestamp, now)) { mutableListOf() }.add(it) }
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(merged, key = { "${it.kind}-${it.id}" }) { row ->
-                    RecordCard(
-                        row = row,
-                        onDelete = { viewModel.deleteRecord(row.kind, row.id) }
-                    )
+                groups.forEach { (label, items) ->
+                    item {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    items(items, key = { "${it.kind}-${it.id}" }) { row ->
+                        RecordCard(
+                            row = row,
+                            onEdit = { onEdit(row.kind, row.id) },
+                            onDelete = { viewModel.deleteRecord(row.kind, row.id) }
+                        )
+                    }
                 }
             }
         }
@@ -363,11 +440,41 @@ private fun RecordsPanel(
 }
 
 @Composable
-private fun RecordCard(row: RecordItem, onDelete: () -> Unit) {
+private fun StatTile(
+    value: String,
+    label: String,
+    sub: String,
+    modifier: Modifier = Modifier
+) {
     Card(
+        modifier = modifier,
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(value, style = MaterialTheme.typography.titleLarge)
+            Text(label, style = MaterialTheme.typography.bodySmall)
+            Text(sub, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun RecordCard(
+    row: RecordItem,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = Modifier.clickable(onClick = onEdit)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(14.dp),
@@ -401,6 +508,18 @@ private data class RecordItem(
     val title: String,
     val note: String
 )
+
+private fun sleepMinutes(care: CareEntity): Long {
+    if (care.startAt != null && care.endAt != null) return (care.endAt - care.startAt) / 60_000
+    return care.detail.filter { it.isDigit() }.toLongOrNull() ?: 0
+}
+
+private fun sleepText(minutes: Long): String {
+    if (minutes <= 0) return "0"
+    val h = minutes / 60
+    val m = minutes % 60
+    return if (h > 0) "${h}h${m}m" else "${m}m"
+}
 
 private fun describeFeed(type: String, amount: Double?, durationMin: Int?): String {
     val t = FeedType.fromName(type)
