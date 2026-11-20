@@ -1,6 +1,7 @@
 package com.babytracker.app.ui.medical
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -9,20 +10,25 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.babytracker.app.domain.model.MedicalType
 import com.babytracker.app.ui.components.BackTopBar
+import com.babytracker.app.ui.components.DateTimePickerField
 import com.babytracker.app.ui.components.FieldLabel
 import com.babytracker.app.ui.components.SaveButton
 import com.babytracker.app.ui.components.SectionCard
@@ -45,14 +51,36 @@ fun MedicalEntryScreen(
 ) {
     val babies by viewModel.babyRepo.babies.collectAsStateWithLifecycle(emptyList())
     val babyId = viewModel.selectedBabyId ?: babies.firstOrNull()?.id
+    val original = viewModel.editingMedical
+
+    LaunchedEffect(Unit) { viewModel.fetchEdit() }
 
     var type by remember { mutableStateOf(MedicalType.SUPPLEMENT) }
     var title by remember { mutableStateOf("") }
     var dose by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
+    var timestamp by remember { mutableStateOf(System.currentTimeMillis()) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp)) {
-        BackTopBar("记医疗", onBack)
+    LaunchedEffect(original) {
+        original?.let {
+            type = MedicalType.fromName(it.type)
+            title = it.title
+            dose = it.dose
+            note = it.note
+            timestamp = it.timestamp
+        }
+    }
+
+    val isEdit = original != null
+
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp)
+                .padding(bottom = 84.dp)
+        ) {
+        BackTopBar(if (isEdit) "编辑医疗" else "记医疗", onBack)
         Spacer(Modifier.height(16.dp))
 
         SectionCard {
@@ -73,6 +101,8 @@ fun MedicalEntryScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
+            DateTimePickerField("时间", timestamp) { timestamp = it }
+            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -96,10 +126,10 @@ fun MedicalEntryScreen(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+        }
 
-        Spacer(Modifier.weight(1f))
         fun save() {
-            if (babyId == null) {
+            if (babyId == null && original == null) {
                 viewModel.message("请先添加宝宝档案")
                 return
             }
@@ -107,9 +137,14 @@ fun MedicalEntryScreen(
                 viewModel.message("请填写名称或事项")
                 return
             }
-            viewModel.addMedical(babyId, type, title, dose, note)
+            viewModel.upsertMedical(babyId, original, type, title, dose, note, timestamp)
+            viewModel.clearEdit()
             onBack()
         }
-        SaveButton("保存", onClick = ::save)
+        SaveButton(
+            if (isEdit) "保存修改" else "保存",
+            modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+            onClick = ::save
+        )
     }
 }
